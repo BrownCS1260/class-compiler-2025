@@ -45,4 +45,12 @@ let rec interp_exp (program : s_exp) : int =
       raise (BadExpression program)
 
 let interp (program : string) : string =
-  interp_exp (parse program) |> string_of_int
+  parse program |> interp_exp |> string_of_int
+
+let difftest (examples : string list) =
+  let results =
+    List.map (fun ex -> (compile_and_run ex, interp ex)) examples
+  in
+  List.for_all (fun (r1, r2) -> r1 = r2) results
+
+let test () = difftest ["43"; "(add1 (add1 3))"; "(sub1 4)"]
