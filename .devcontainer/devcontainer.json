@@ -2,9 +2,6 @@
   "name": "CS1260 Dev Container",
   "image": "jiahuac/cs1260:main",
   "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "version": "latest"
-    }
   },
   "customizations": {
     "vscode": {
