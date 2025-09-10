@@ -1,17 +1,25 @@
-let compile (program : string) : string =
-  String.concat "\n"
-    [ "global entry"
-    ; "entry:"
-    ; Printf.sprintf "\tmov rax, %s" program
-    ; "\tret" ]
+open S_exp
 
-let compile_to_file (program : string) : unit =
+exception BadExpression of s_exp
+
+let compile (program : s_exp) : string =
+  match program with
+  | Num n ->
+      String.concat "\n"
+        [ "global entry"
+        ; "entry:"
+        ; Printf.sprintf "\tmov rax, %d" n
+        ; "\tret" ]
+  | _ ->
+      raise (BadExpression program)
+
+let compile_to_file (program : s_exp) : unit =
   let file = open_out "program.s" in
   output_string file (compile program) ;
   close_out file
 
 let compile_and_run (program : string) : string =
-  compile_to_file program ;
+  compile_to_file (parse program) ;
   ignore (Unix.system "nasm program.s -f elf64 -o program.o") ;
   ignore
     (Unix.system "gcc program.o runtime.o -o program -z noexecstack") ;
