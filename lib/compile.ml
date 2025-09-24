@@ -28,7 +28,7 @@ let zf_to_bool : directive list =
   ; Or (Reg Rax, Imm bool_tag) ]
 
 (* stack_index: the smallest negative amount to add to rsp to find an empty location on the stack *)
-let rec compile_exp (program : s_exp) (stack_index : int) :
+let rec compile_exp (stack_index : int) (program : s_exp) :
     directive list =
   match program with
   | Num n ->
@@ -38,43 +38,43 @@ let rec compile_exp (program : s_exp) (stack_index : int) :
   | Sym "false" ->
       [Mov (Reg Rax, Imm ((0 lsl bool_shift) lor bool_tag))]
   | Lst [Sym "not"; arg] ->
-      compile_exp arg stack_index
+      compile_exp stack_index arg
       @ [Cmp (Reg Rax, operand_of_bool false)]
       @ zf_to_bool
   | Lst [Sym "zero?"; arg] ->
-      compile_exp arg stack_index
+      compile_exp stack_index arg
       @ [Cmp (Reg Rax, operand_of_num 0)]
       @ zf_to_bool
   | Lst [Sym "num?"; arg] ->
-      compile_exp arg stack_index
+      compile_exp stack_index arg
       @ [And (Reg Rax, Imm num_mask); Cmp (Reg Rax, Imm num_tag)]
       @ zf_to_bool
   | Lst [Sym "add1"; exp] ->
-      compile_exp exp stack_index
+      compile_exp stack_index exp
       @ [Add (Reg Rax, Imm (1 lsl num_shift))]
   | Lst [Sym "sub1"; exp] ->
-      compile_exp exp stack_index
+      compile_exp stack_index exp
       @ [Sub (Reg Rax, Imm (1 lsl num_shift))]
   | Lst [Sym "if"; test_exp; then_exp; else_exp] ->
       let else_label = Util.gensym "else" in
       let continue_label = Util.gensym "continue" in
-      compile_exp test_exp stack_index
+      compile_exp stack_index test_exp
       @ [Cmp (Reg Rax, operand_of_bool false); Jz else_label]
-      @ compile_exp then_exp stack_index
+      @ compile_exp stack_index then_exp
       @ [Jmp continue_label] @ [Label else_label]
-      @ compile_exp else_exp stack_index
+      @ compile_exp stack_index else_exp
       @ [Label continue_label]
   | Lst [Sym "+"; e1; e2] ->
-      compile_exp e1 stack_index
+      compile_exp stack_index e1
       @ [Mov (MemOffset (Reg Rsp, Imm stack_index), Reg Rax)]
-      @ compile_exp e2 (stack_index - 8)
+      @ compile_exp (stack_index - 8) e2
       @ [Mov (Reg R8, MemOffset (Reg Rsp, Imm stack_index))]
       @ [Add (Reg Rax, Reg R8)]
   | _ ->
       raise (BadExpression program)
 
 let compile (program : s_exp) : string =
-  [Global "entry"; Label "entry"] @ compile_exp program (-8) @ [Ret]
+  [Global "entry"; Label "entry"] @ compile_exp (-8) program @ [Ret]
   |> List.map string_of_directive
   |> String.concat "\n"
 
