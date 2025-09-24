@@ -27,6 +27,12 @@ let zf_to_bool : directive list =
   ; Shl (Reg Rax, Imm bool_shift)
   ; Or (Reg Rax, Imm bool_tag) ]
 
+let lf_to_bool : directive list =
+  [ Mov (Reg Rax, Imm 0)
+  ; Setl (Reg Rax)
+  ; Shl (Reg Rax, Imm bool_shift)
+  ; Or (Reg Rax, Imm bool_tag) ]
+
 (* stack_index: the smallest negative amount to add to rsp to find an empty location on the stack *)
 let rec compile_exp (stack_index : int) (program : s_exp) :
     directive list =
@@ -70,6 +76,27 @@ let rec compile_exp (stack_index : int) (program : s_exp) :
       @ compile_exp (stack_index - 8) e2
       @ [Mov (Reg R8, MemOffset (Reg Rsp, Imm stack_index))]
       @ [Add (Reg Rax, Reg R8)]
+  | Lst [Sym "-"; e1; e2] ->
+      compile_exp stack_index e1
+      @ [Mov (MemOffset (Reg Rsp, Imm stack_index), Reg Rax)]
+      @ compile_exp (stack_index - 8) e2
+      @ [Mov (Reg R8, Reg Rax)]
+      @ [Mov (Reg Rax, MemOffset (Reg Rsp, Imm stack_index))]
+      @ [Sub (Reg Rax, Reg R8)]
+  | Lst [Sym "="; e1; e2] ->
+      compile_exp stack_index e1
+      @ [Mov (MemOffset (Reg Rsp, Imm stack_index), Reg Rax)]
+      @ compile_exp (stack_index - 8) e2
+      @ [Mov (Reg R8, MemOffset (Reg Rsp, Imm stack_index))]
+      @ [Cmp (Reg Rax, Reg R8)]
+      @ zf_to_bool
+  | Lst [Sym "<"; e1; e2] ->
+      compile_exp stack_index e1
+      @ [Mov (MemOffset (Reg Rsp, Imm stack_index), Reg Rax)]
+      @ compile_exp (stack_index - 8) e2
+      @ [Mov (Reg R8, MemOffset (Reg Rsp, Imm stack_index))]
+      @ [Cmp (Reg R8, Reg Rax)]
+      @ lf_to_bool
   | _ ->
       raise (BadExpression program)
 
