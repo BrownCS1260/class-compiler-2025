@@ -36,9 +36,11 @@ exception BadSExpression of s_exp
 type expr =
   | Num of int
   | Bool of bool
+  | Var of string
   | Prim1 of prim1 * expr
   | Prim2 of prim2 * expr * expr
   | If of expr * expr * expr
+  | Let of string * expr * expr
 
 let rec expr_of_s_exp (e : s_exp) : expr =
   match e with
@@ -48,6 +50,8 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Bool true
   | Sym "false" ->
       Bool false
+  | Sym var ->
+      Var var
   | Lst [Sym f; e1] -> (
     match prim1_of_string f with
     | Some p1 ->
@@ -61,5 +65,7 @@ let rec expr_of_s_exp (e : s_exp) : expr =
         , expr_of_s_exp e2 )
   | Lst [Sym "if"; e1; e2; e3] ->
       If (expr_of_s_exp e1, expr_of_s_exp e2, expr_of_s_exp e3)
+  | Lst [Sym "let"; Lst [Lst [Sym s; e]]; body] ->
+      Let (s, expr_of_s_exp e, expr_of_s_exp body)
   | _ ->
       raise (BadSExpression e)
