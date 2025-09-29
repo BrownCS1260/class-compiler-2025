@@ -84,7 +84,7 @@ let rec compile_exp (stack_index : int) (exp : expr) : directive list
       @ [Mov (MemOffset (Reg Rsp, Imm stack_index), Reg Rax)]
       @ compile_exp (stack_index - 8) e2
       @ [ Mov (Reg R8, MemOffset (Reg Rsp, Imm stack_index))
-        ; Cmp (Reg Rax, Reg R8) ]
+        ; Cmp (Reg R8, Reg Rax) ]
       @ lf_to_bool
   | If (test_exp, then_exp, else_exp) ->
       let else_label = Util.gensym "else" in
