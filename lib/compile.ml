@@ -48,13 +48,13 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       [Mov (Reg Rax, operand_of_num n)]
   | Prim1 (Add1, arg) ->
       compile_exp tab stack_index arg
-      @ [Add (Reg Rax, Imm (1 lsl num_shift))]
+      @ [Add (Reg Rax, operand_of_num 1)]
   | Prim1 (Sub1, arg) ->
       compile_exp tab stack_index arg
-      @ [Sub (Reg Rax, Imm (1 lsl num_shift))]
+      @ [Sub (Reg Rax, operand_of_num 1)]
   | Prim1 (Not, arg) ->
       compile_exp tab stack_index arg
-      @ [Cmp (Reg Rax, Imm ((0 lsl bool_shift) lor bool_tag))]
+      @ [Cmp (Reg Rax, operand_of_bool false)]
       @ zf_to_bool
   | Prim1 (ZeroP, arg) ->
       compile_exp tab stack_index arg
