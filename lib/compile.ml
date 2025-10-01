@@ -17,6 +17,10 @@ let bool_mask = 0b1111111
 
 let bool_tag = 0b0011111
 
+let pair_mask = 0b111
+
+let pair_tag = 0b010
+
 let operand_of_bool (b : bool) : operand =
   Imm (((if b then 1 else 0) lsl bool_shift) lor bool_tag)
 
@@ -109,6 +113,20 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       @ compile_exp
           (Symtab.add s stack_index tab)
           (stack_index - 8) body
+  | Prim1 (Left, _) ->
+      raise (BadExpression exp)
+  | Prim1 (Right, _) ->
+      raise (BadExpression exp)
+  | Pair (e1, e2) ->
+      compile_exp tab stack_index e1
+      @ [Mov (stack_address stack_index, Reg Rax)]
+      @ compile_exp tab (stack_index - 8) e2
+      @ [ Mov (Reg R8, stack_address stack_index)
+        ; Mov (MemOffset (Reg Rdi, Imm 0), Reg R8)
+        ; Mov (MemOffset (Reg Rdi, Imm 8), Reg Rax)
+        ; Mov (Reg Rax, Reg Rdi)
+        ; Or (Reg Rax, Imm pair_tag)
+        ; Add (Reg Rdi, Imm 16) ]
 
 let compile (program : expr) : string =
   [Global "entry"; Label "entry"]
