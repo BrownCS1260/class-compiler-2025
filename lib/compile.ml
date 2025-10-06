@@ -68,6 +68,12 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       compile_exp tab stack_index arg
       @ [And (Reg Rax, Imm num_mask); Cmp (Reg Rax, Imm num_tag)]
       @ zf_to_bool
+  | Prim1 (Left, arg) ->
+      compile_exp tab stack_index arg
+      @ [Mov (Reg Rax, MemOffset (Reg Rax, Imm (-pair_tag)))]
+  | Prim1 (Right, arg) ->
+      compile_exp tab stack_index arg
+      @ [Mov (Reg Rax, MemOffset (Reg Rax, Imm (-pair_tag + 8)))]
   | Prim2 (Plus, e1, e2) ->
       compile_exp tab stack_index e1
       @ [Mov (stack_address stack_index, Reg Rax)]
@@ -113,10 +119,6 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       @ compile_exp
           (Symtab.add s stack_index tab)
           (stack_index - 8) body
-  | Prim1 (Left, _) ->
-      raise (BadExpression exp)
-  | Prim1 (Right, _) ->
-      raise (BadExpression exp)
   | Pair (e1, e2) ->
       compile_exp tab stack_index e1
       @ [Mov (stack_address stack_index, Reg Rax)]
