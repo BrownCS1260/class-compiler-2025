@@ -76,3 +76,26 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Pair (expr_of_s_exp e1, expr_of_s_exp e2)
   | _ ->
       raise (BadSExpression e)
+
+let rec fv (bound : string list) (exp : expr) =
+  match exp with
+  | Var s when not (List.mem s bound) ->
+      [s]
+  | Var _ ->
+      []
+  | Let (v, e, body) ->
+      fv bound e @ fv (v :: bound) body
+  | If (te, the, ee) ->
+      fv bound te @ fv bound the @ fv bound ee
+  | Prim1 (_, e) ->
+      fv bound e
+  | Prim2 (_, e1, e2) ->
+      fv bound e1 @ fv bound e2
+  | Pair (e1, e2) ->
+      fv bound e1 @ fv bound e2
+  | Num _ ->
+      []
+  | Bool _ ->
+      []
+
+let has_free_vars (exp : expr) : bool = fv [] exp <> []

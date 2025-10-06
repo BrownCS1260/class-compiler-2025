@@ -173,7 +173,9 @@ let compile_to_file (program : expr) : unit =
   close_out file
 
 let compile_and_run (program : string) : string =
-  parse program |> expr_of_s_exp |> compile_to_file ;
+  let out = parse program |> expr_of_s_exp in
+  if has_free_vars out then raise (BadExpression out) ;
+  compile_to_file out ;
   ignore (Unix.system "nasm program.s -f elf64 -o program.o") ;
   ignore
     (Unix.system "gcc program.o runtime.o -o program -z noexecstack") ;

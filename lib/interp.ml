@@ -108,8 +108,9 @@ let rec interp_exp (env : value symtab) (exp : expr) : value =
       Pair (interp_exp env e1, interp_exp env e2)
 
 let interp (program : string) : string =
-  parse program |> expr_of_s_exp |> interp_exp Symtab.empty
-  |> string_of_value
+  let out = parse program |> expr_of_s_exp in
+  if has_free_vars out then raise (BadExpression out) ;
+  interp_exp Symtab.empty out |> string_of_value
 
 let interp_err (program : string) : string =
   try interp program with BadExpression _ -> "ERROR"
