@@ -17,7 +17,7 @@ let bool_mask = 0b1111111
 
 let bool_tag = 0b0011111
 
-let pair_mask = 0b111
+let heap_mask = 0b111
 
 let pair_tag = 0b010
 
@@ -44,6 +44,19 @@ let ensure_num (op : operand) : directive list =
   [ Mov (Reg R8, op)
   ; And (Reg R8, Imm num_mask)
   ; Cmp (Reg R8, Imm num_tag)
+  ; Jnz "error" ]
+
+(* overwrites R8   *)
+let ensure_bool (op : operand) : directive list =
+  [ Mov (Reg R8, op)
+  ; And (Reg R8, Imm bool_mask)
+  ; Cmp (Reg R8, Imm bool_tag)
+  ; Jnz "error" ]
+
+let ensure_pair (op : operand) : directive list =
+  [ Mov (Reg R8, op)
+  ; And (Reg R8, Imm heap_mask)
+  ; Cmp (Reg R8, Imm pair_tag)
   ; Jnz "error" ]
 
 let stack_address (stack_index : int) =
@@ -79,9 +92,11 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       @ zf_to_bool
   | Prim1 (Left, arg) ->
       compile_exp tab stack_index arg
+      @ ensure_pair (Reg Rax)
       @ [Mov (Reg Rax, MemOffset (Reg Rax, Imm (-pair_tag)))]
   | Prim1 (Right, arg) ->
       compile_exp tab stack_index arg
+      @ ensure_pair (Reg Rax)
       @ [Mov (Reg Rax, MemOffset (Reg Rax, Imm (-pair_tag + 8)))]
   | Prim2 (Plus, e1, e2) ->
       compile_exp tab stack_index e1
@@ -92,8 +107,10 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       @ [Add (Reg Rax, stack_address stack_index)]
   | Prim2 (Minus, e1, e2) ->
       compile_exp tab stack_index e1
+      @ ensure_num (Reg Rax)
       @ [Mov (stack_address stack_index, Reg Rax)]
       @ compile_exp tab (stack_index - 8) e2
+      @ ensure_num (Reg Rax)
       @ [ Mov (Reg R8, Reg Rax)
         ; Mov (Reg Rax, stack_address stack_index) ]
       @ [Sub (Reg Rax, Reg R8)]
@@ -106,8 +123,10 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       @ zf_to_bool
   | Prim2 (Lt, e1, e2) ->
       compile_exp tab stack_index e1
+      @ ensure_num (Reg Rax)
       @ [Mov (stack_address stack_index, Reg Rax)]
       @ compile_exp tab (stack_index - 8) e2
+      @ ensure_num (Reg Rax)
       @ [ Mov (Reg R8, stack_address stack_index)
         ; Cmp (Reg R8, Reg Rax) ]
       @ lf_to_bool
