@@ -15,6 +15,12 @@
 
 extern int64_t entry(void *heap);
 
+uint64_t read_num() {
+    int r; 
+    scanf("%d", &r);
+    return (uint64_t)(r) << num_shift;
+}
+
 void error() {
     printf("ERROR");
     exit(1);

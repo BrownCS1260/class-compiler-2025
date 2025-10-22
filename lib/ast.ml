@@ -1,5 +1,10 @@
 open S_exp
 
+type prim0 = ReadNum
+
+let prim0_of_string (s : string) : prim0 option =
+  match s with "read-num" -> Some ReadNum | _ -> None
+
 type prim1 = Add1 | Sub1 | ZeroP | NumP | Not | Left | Right
 
 let prim1_of_string (s : string) : prim1 option =
@@ -41,6 +46,7 @@ type expr =
   | Num of int
   | Bool of bool
   | Var of string
+  | Prim0 of prim0
   | Prim1 of prim1 * expr
   | Prim2 of prim2 * expr * expr
   | If of expr * expr * expr
@@ -57,6 +63,8 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Bool false
   | Sym var ->
       Var var
+  | Lst [Sym f] when Option.is_some (prim0_of_string f) ->
+      Prim0 (Option.get (prim0_of_string f))
   | Lst [Sym f; e1] -> (
     match prim1_of_string f with
     | Some p1 ->
@@ -87,6 +95,8 @@ let rec fv (bound : string list) (exp : expr) =
       fv bound e @ fv (v :: bound) body
   | If (te, the, ee) ->
       fv bound te @ fv bound the @ fv bound ee
+  | Prim0 ReadNum ->
+      []
   | Prim1 (_, e) ->
       fv bound e
   | Prim2 (_, e1, e2) ->

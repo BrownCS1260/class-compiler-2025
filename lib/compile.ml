@@ -62,6 +62,9 @@ let ensure_pair (op : operand) : directive list =
 let stack_address (stack_index : int) =
   MemOffset (Reg Rsp, Imm stack_index)
 
+let align_stack_index (stack_index : int) : int =
+  if stack_index mod 16 = 0 then stack_index - 8 else stack_index
+
 (* stack_index: the smallest negative amount to add to rsp to find an empty location on the stack *)
 let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
     : directive list =
@@ -70,6 +73,12 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       [Mov (Reg Rax, operand_of_bool b)]
   | Num n ->
       [Mov (Reg Rax, operand_of_num n)]
+  | Prim0 ReadNum ->
+      [ Mov (stack_address stack_index, Reg Rdi)
+      ; Add (Reg Rsp, Imm (align_stack_index stack_index))
+      ; Call "read_num"
+      ; Sub (Reg Rsp, Imm (align_stack_index stack_index))
+      ; Mov (Reg Rdi, stack_address stack_index) ]
   | Prim1 (Add1, arg) ->
       compile_exp tab stack_index arg
       @ ensure_num (Reg Rax)
@@ -161,7 +170,7 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
         ; Add (Reg Rdi, Imm 16) ]
 
 let compile (program : expr) : string =
-  [Global "entry"; Extern "error"; Label "entry"]
+  [Global "entry"; Extern "read_num"; Extern "error"; Label "entry"]
   @ compile_exp Symtab.empty (-8) program
   @ [Ret]
   |> List.map string_of_directive
@@ -178,7 +187,8 @@ let compile_and_run (program : string) : string =
   compile_to_file out ;
   ignore (Unix.system "nasm program.s -f elf64 -o program.o") ;
   ignore
-    (Unix.system "gcc program.o runtime.o -o program -z noexecstack") ;
+    (Unix.system
+       "gcc program.o -g runtime.o -o program -z noexecstack" ) ;
   let inp = Unix.open_process_in "./program" in
   let r = input_line inp in
   close_in inp ; r
