@@ -26,6 +26,10 @@ void error() {
     exit(1);
 }
 
+void print_newline() {
+    printf("\n");
+}
+
 void print_value(uint64_t value) {
 
     if ((value & num_mask) == num_tag) {
@@ -53,6 +57,6 @@ void print_value(uint64_t value) {
 }
 
 int main(int argc, char **argv) {
-    print_value(entry((void*)malloc(4096)));
+    entry((void*)malloc(4096));
     return 0;
 }

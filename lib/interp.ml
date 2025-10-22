@@ -4,6 +4,8 @@ open Util
 
 exception BadExpression of expr
 
+let output_channel = ref stdout
+
 type value = Number of int | Boolean of bool | Pair of value * value
 
 let rec string_of_value (v : value) : string =
@@ -30,6 +32,12 @@ let rec interp_exp (env : value symtab) (exp : expr) : value =
       Boolean b
   | Prim0 ReadNum ->
       Number (input_line stdin |> int_of_string)
+  | Prim0 Newline ->
+      output_string stdout "\n" ;
+      Boolean true
+  | Prim1 (Print, e) ->
+      interp_exp env e |> string_of_value |> output_string stdout ;
+      Boolean true
   | Prim1 (Not, arg) ->
       if interp_exp env arg = Boolean false then Boolean true
       else Boolean false
@@ -118,11 +126,13 @@ let rec interp_exp (env : value symtab) (exp : expr) : value =
       let v1 = interp_exp env e1 in
       let v2 = interp_exp env e2 in
       Pair (v1, v2)
+  | Do exps ->
+      exps |> List.rev_map (interp_exp env) |> List.hd
 
-let interp (program : string) : string =
+let interp (program : string) : unit =
   let out = parse program |> expr_of_s_exp in
   if has_free_vars out then raise (BadExpression out) ;
-  interp_exp Symtab.empty out |> string_of_value
+  interp_exp Symtab.empty out |> ignore
 
-let interp_err (program : string) : string =
-  try interp program with BadExpression _ -> "ERROR"
+(* let interp_err (program : string) : string =
+   try interp program with BadExpression _ -> "ERROR" *)

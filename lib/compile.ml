@@ -73,12 +73,28 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       [Mov (Reg Rax, operand_of_bool b)]
   | Num n ->
       [Mov (Reg Rax, operand_of_num n)]
+  | Prim0 Newline ->
+      [ Mov (stack_address stack_index, Reg Rdi)
+      ; Add (Reg Rsp, Imm (align_stack_index stack_index))
+      ; Call "print_newline"
+      ; Sub (Reg Rsp, Imm (align_stack_index stack_index))
+      ; Mov (Reg Rdi, stack_address stack_index)
+      ; Mov (Reg Rax, operand_of_bool true) ]
   | Prim0 ReadNum ->
       [ Mov (stack_address stack_index, Reg Rdi)
       ; Add (Reg Rsp, Imm (align_stack_index stack_index))
       ; Call "read_num"
       ; Sub (Reg Rsp, Imm (align_stack_index stack_index))
       ; Mov (Reg Rdi, stack_address stack_index) ]
+  | Prim1 (Print, e) ->
+      compile_exp tab stack_index e
+      @ [ Mov (stack_address stack_index, Reg Rdi)
+        ; Mov (Reg Rdi, Reg Rax)
+        ; Add (Reg Rsp, Imm (align_stack_index stack_index))
+        ; Call "print_value"
+        ; Sub (Reg Rsp, Imm (align_stack_index stack_index))
+        ; Mov (Reg Rdi, stack_address stack_index)
+        ; Mov (Reg Rax, operand_of_bool true) ]
   | Prim1 (Add1, arg) ->
       compile_exp tab stack_index arg
       @ ensure_num (Reg Rax)
@@ -168,9 +184,17 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
         ; Mov (Reg Rax, Reg Rdi)
         ; Or (Reg Rax, Imm pair_tag)
         ; Add (Reg Rdi, Imm 16) ]
+  | Do exps ->
+      List.map (fun exp -> compile_exp tab stack_index exp) exps
+      |> List.concat
 
 let compile (program : expr) : string =
-  [Global "entry"; Extern "read_num"; Extern "error"; Label "entry"]
+  [ Global "entry"
+  ; Extern "read_num"
+  ; Extern "print_value"
+  ; Extern "print_newline"
+  ; Extern "error"
+  ; Label "entry" ]
   @ compile_exp Symtab.empty (-8) program
   @ [Ret]
   |> List.map string_of_directive
@@ -181,7 +205,7 @@ let compile_to_file (program : expr) : unit =
   output_string file (compile program) ;
   close_out file
 
-let compile_and_run (program : string) : string =
+let compile_and_run (program : string) : unit =
   let out = parse program |> expr_of_s_exp in
   if has_free_vars out then raise (BadExpression out) ;
   compile_to_file out ;
@@ -189,6 +213,4 @@ let compile_and_run (program : string) : string =
   ignore
     (Unix.system
        "gcc program.o -g runtime.o -o program -z noexecstack" ) ;
-  let inp = Unix.open_process_in "./program" in
-  let r = input_line inp in
-  close_in inp ; r
+  Unix.open_process_in "./program" |> ignore

@@ -1,11 +1,17 @@
 open S_exp
 
-type prim0 = ReadNum
+type prim0 = ReadNum | Newline
 
 let prim0_of_string (s : string) : prim0 option =
-  match s with "read-num" -> Some ReadNum | _ -> None
+  match s with
+  | "read-num" ->
+      Some ReadNum
+  | "newline" ->
+      Some Newline
+  | _ ->
+      None
 
-type prim1 = Add1 | Sub1 | ZeroP | NumP | Not | Left | Right
+type prim1 = Add1 | Sub1 | ZeroP | NumP | Not | Left | Right | Print
 
 let prim1_of_string (s : string) : prim1 option =
   match s with
@@ -23,6 +29,8 @@ let prim1_of_string (s : string) : prim1 option =
       Some Left
   | "right" ->
       Some Right
+  | "print" ->
+      Some Print
   | _ ->
       None
 
@@ -52,6 +60,7 @@ type expr =
   | If of expr * expr * expr
   | Let of string * expr * expr
   | Pair of expr * expr
+  | Do of expr list
 
 let rec expr_of_s_exp (e : s_exp) : expr =
   match e with
@@ -82,6 +91,8 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Let (s, expr_of_s_exp e, expr_of_s_exp body)
   | Lst [Sym "pair"; e1; e2] ->
       Pair (expr_of_s_exp e1, expr_of_s_exp e2)
+  | Lst (Sym "do" :: args) ->
+      Do (List.map expr_of_s_exp args)
   | _ ->
       raise (BadSExpression e)
 
@@ -95,7 +106,7 @@ let rec fv (bound : string list) (exp : expr) =
       fv bound e @ fv (v :: bound) body
   | If (te, the, ee) ->
       fv bound te @ fv bound the @ fv bound ee
-  | Prim0 ReadNum ->
+  | Prim0 _ ->
       []
   | Prim1 (_, e) ->
       fv bound e
@@ -107,5 +118,7 @@ let rec fv (bound : string list) (exp : expr) =
       []
   | Bool _ ->
       []
+  | Do exps ->
+      List.fold_left (fun l e -> fv bound e @ l) [] exps
 
 let has_free_vars (exp : expr) : bool = fv [] exp <> []
