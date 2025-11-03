@@ -6,7 +6,11 @@ exception BadExpression of expr
 
 let output_channel = ref stdout
 
-type value = Number of int | Boolean of bool | Pair of value * value
+type value =
+  | Number of int
+  | Boolean of bool
+  | Pair of value * value
+  | Function of string
 
 let rec string_of_value (v : value) : string =
   match v with
@@ -17,6 +21,8 @@ let rec string_of_value (v : value) : string =
   | Pair (v1, v2) ->
       Printf.sprintf "(pair %s %s)" (string_of_value v1)
         (string_of_value v2)
+  | Function _ ->
+      "<function>"
 
 let st : int symtab = Symtab.empty
 
@@ -107,6 +113,8 @@ let rec interp_exp (defns : defn list) (env : value symtab)
       else interp_exp defns env then_exp
   | Var s when Symtab.mem s env ->
       Symtab.find s env
+  | Var s when is_defn defns s ->
+      Function s
   | Var _ ->
       raise (BadExpression exp)
   | Let (s, e, body) ->
@@ -130,19 +138,20 @@ let rec interp_exp (defns : defn list) (env : value symtab)
       Pair (v1, v2)
   | Do exps ->
       exps |> List.rev_map (interp_exp defns env) |> List.hd
-  | Call (f, args) when is_defn defns f ->
-      let defn = get_defn defns f in
-      if List.length args = List.length defn.args then
-        let args = List.map (interp_exp defns env) args in
-        let fenv = List.combine defn.args args |> Symtab.of_list in
-        interp_exp defns fenv defn.body
-      else raise (BadExpression exp)
-  | Call _ ->
-      raise (BadExpression exp)
+  | Call (f, args) -> (
+      let fv = interp_exp defns env f in
+      match fv with
+      | Function name when is_defn defns name ->
+          let defn = get_defn defns name in
+          let args = List.map (interp_exp defns env) args in
+          let fenv = List.combine defn.args args |> Symtab.of_list in
+          interp_exp defns fenv defn.body
+      | _ ->
+          raise (BadExpression exp) )
 
 let interp (program : string) : unit =
   let out = parse_many program |> program_of_s_exps in
-  if has_free_vars out.body then raise (BadExpression out.body) ;
+  (* if has_free_vars out.body then raise (BadExpression out.body) ; *)
   interp_exp out.defns Symtab.empty out.body |> ignore
 
 (* let interp_err (program : string) : string =

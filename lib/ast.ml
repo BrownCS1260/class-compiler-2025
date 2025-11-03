@@ -61,7 +61,10 @@ type expr =
   | Let of string * expr * expr
   | Pair of expr * expr
   | Do of expr list
-  | Call of string * expr list
+  | Call of expr * expr list
+
+(*     ((id mul2) 5)     *)
+let idmul2 : expr = Call (Call (Var "id", [Var "mul2"]), [Num 5])
 
 let rec expr_of_s_exp (e : s_exp) : expr =
   match e with
@@ -94,8 +97,8 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Pair (expr_of_s_exp e1, expr_of_s_exp e2)
   | Lst (Sym "do" :: args) ->
       Do (List.map expr_of_s_exp args)
-  | Lst (Sym f :: args) ->
-      Call (f, List.map expr_of_s_exp args)
+  | Lst (f :: args) ->
+      Call (expr_of_s_exp f, List.map expr_of_s_exp args)
   | _ ->
       raise (BadSExpression e)
 
