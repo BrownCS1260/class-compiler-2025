@@ -66,8 +66,8 @@ let align_stack_index (stack_index : int) : int =
   if stack_index mod 16 = 0 then stack_index - 8 else stack_index
 
 (* stack_index: the smallest negative amount to add to rsp to find an empty location on the stack *)
-let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
-    : directive list =
+let rec compile_exp (defns : defn list) (tab : int symtab)
+    (stack_index : int) (exp : expr) : directive list =
   match exp with
   | Bool b ->
       [Mov (Reg Rax, operand_of_bool b)]
@@ -87,7 +87,7 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
       ; Sub (Reg Rsp, Imm (align_stack_index stack_index))
       ; Mov (Reg Rdi, stack_address stack_index) ]
   | Prim1 (Print, e) ->
-      compile_exp tab stack_index e
+      compile_exp defns tab stack_index e
       @ [ Mov (stack_address stack_index, Reg Rdi)
         ; Mov (Reg Rdi, Reg Rax)
         ; Add (Reg Rsp, Imm (align_stack_index stack_index))
@@ -96,61 +96,61 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
         ; Mov (Reg Rdi, stack_address stack_index)
         ; Mov (Reg Rax, operand_of_bool true) ]
   | Prim1 (Add1, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ ensure_num (Reg Rax)
       @ [Add (Reg Rax, operand_of_num 1)]
   | Prim1 (Sub1, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ ensure_num (Reg Rax)
       @ [Sub (Reg Rax, operand_of_num 1)]
   | Prim1 (Not, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ [Cmp (Reg Rax, operand_of_bool false)]
       @ zf_to_bool
   | Prim1 (ZeroP, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ [Cmp (Reg Rax, operand_of_num 0)]
       @ zf_to_bool
   | Prim1 (NumP, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ [And (Reg Rax, Imm num_mask); Cmp (Reg Rax, Imm num_tag)]
       @ zf_to_bool
   | Prim1 (Left, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ ensure_pair (Reg Rax)
       @ [Mov (Reg Rax, MemOffset (Reg Rax, Imm (-pair_tag)))]
   | Prim1 (Right, arg) ->
-      compile_exp tab stack_index arg
+      compile_exp defns tab stack_index arg
       @ ensure_pair (Reg Rax)
       @ [Mov (Reg Rax, MemOffset (Reg Rax, Imm (-pair_tag + 8)))]
   | Prim2 (Plus, e1, e2) ->
-      compile_exp tab stack_index e1
+      compile_exp defns tab stack_index e1
       @ ensure_num (Reg Rax)
       @ [Mov (stack_address stack_index, Reg Rax)]
-      @ compile_exp tab (stack_index - 8) e2
+      @ compile_exp defns tab (stack_index - 8) e2
       @ ensure_num (Reg Rax)
       @ [Add (Reg Rax, stack_address stack_index)]
   | Prim2 (Minus, e1, e2) ->
-      compile_exp tab stack_index e1
+      compile_exp defns tab stack_index e1
       @ ensure_num (Reg Rax)
       @ [Mov (stack_address stack_index, Reg Rax)]
-      @ compile_exp tab (stack_index - 8) e2
+      @ compile_exp defns tab (stack_index - 8) e2
       @ ensure_num (Reg Rax)
       @ [ Mov (Reg R8, Reg Rax)
         ; Mov (Reg Rax, stack_address stack_index) ]
       @ [Sub (Reg Rax, Reg R8)]
   | Prim2 (Eq, e1, e2) ->
-      compile_exp tab stack_index e1
+      compile_exp defns tab stack_index e1
       @ [Mov (stack_address stack_index, Reg Rax)]
-      @ compile_exp tab (stack_index - 8) e2
+      @ compile_exp defns tab (stack_index - 8) e2
       @ [ Mov (Reg R8, stack_address stack_index)
         ; Cmp (Reg Rax, Reg R8) ]
       @ zf_to_bool
   | Prim2 (Lt, e1, e2) ->
-      compile_exp tab stack_index e1
+      compile_exp defns tab stack_index e1
       @ ensure_num (Reg Rax)
       @ [Mov (stack_address stack_index, Reg Rax)]
-      @ compile_exp tab (stack_index - 8) e2
+      @ compile_exp defns tab (stack_index - 8) e2
       @ ensure_num (Reg Rax)
       @ [ Mov (Reg R8, stack_address stack_index)
         ; Cmp (Reg R8, Reg Rax) ]
@@ -158,26 +158,26 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
   | If (test_exp, then_exp, else_exp) ->
       let else_label = Util.gensym "else" in
       let continue_label = Util.gensym "continue" in
-      compile_exp tab stack_index test_exp
+      compile_exp defns tab stack_index test_exp
       @ [Cmp (Reg Rax, operand_of_bool false); Jz else_label]
-      @ compile_exp tab stack_index then_exp
+      @ compile_exp defns tab stack_index then_exp
       @ [Jmp continue_label] @ [Label else_label]
-      @ compile_exp tab stack_index else_exp
+      @ compile_exp defns tab stack_index else_exp
       @ [Label continue_label]
   | Var s when Symtab.mem s tab ->
       [Mov (Reg Rax, stack_address (Symtab.find s tab))]
   | Var _ ->
       raise (BadExpression exp)
   | Let (s, e, body) ->
-      compile_exp tab stack_index e
+      compile_exp defns tab stack_index e
       @ [Mov (stack_address stack_index, Reg Rax)]
-      @ compile_exp
+      @ compile_exp defns
           (Symtab.add s stack_index tab)
           (stack_index - 8) body
   | Pair (e1, e2) ->
-      compile_exp tab stack_index e1
+      compile_exp defns tab stack_index e1
       @ [Mov (stack_address stack_index, Reg Rax)]
-      @ compile_exp tab (stack_index - 8) e2
+      @ compile_exp defns tab (stack_index - 8) e2
       @ [ Mov (Reg R8, stack_address stack_index)
         ; Mov (MemOffset (Reg Rdi, Imm 0), Reg R8)
         ; Mov (MemOffset (Reg Rdi, Imm 8), Reg Rax)
@@ -185,30 +185,64 @@ let rec compile_exp (tab : int symtab) (stack_index : int) (exp : expr)
         ; Or (Reg Rax, Imm pair_tag)
         ; Add (Reg Rdi, Imm 16) ]
   | Do exps ->
-      List.map (fun exp -> compile_exp tab stack_index exp) exps
+      List.map (fun exp -> compile_exp defns tab stack_index exp) exps
       |> List.concat
+  | Call (f, args) when is_defn defns f ->
+      let defn = get_defn defns f in
+      if List.length args <> List.length defn.args then
+        raise (BadExpression exp)
+      else
+        let stack_base = align_stack_index (stack_index + 8) in
+        let compiled_args =
+          args
+          |> List.mapi (fun i arg ->
+                 compile_exp defns tab
+                   (stack_base - (8 * (i + 2)))
+                   arg
+                 @ [ Mov
+                       ( stack_address (stack_base - (8 * (i + 2)))
+                       , Reg Rax ) ] )
+          |> List.concat
+        in
+        compiled_args
+        @ [ Add (Reg Rsp, Imm stack_base)
+          ; Call (defn_label f)
+          ; Sub (Reg Rsp, Imm stack_base) ]
+  | Call _ ->
+      raise (BadExpression exp)
 
-let compile (program : expr) : string =
+let compile_defns defns {name; args; body} =
+  let ftab =
+    args
+    |> List.mapi (fun i arg -> (arg, -8 * (i + 1)))
+    |> Symtab.of_list
+  in
+  [Label (defn_label name)]
+  @ compile_exp defns ftab (-8 * (List.length args + 1)) body
+
+let compile (prog : program) : string =
   [ Global "entry"
-  ; Extern "read_num"
-  ; Extern "print_value"
-  ; Extern "print_newline"
   ; Extern "error"
+  ; Extern "read_num"
+  ; Extern "print_newline"
+  ; Extern "print_value"
   ; Label "entry" ]
-  @ compile_exp Symtab.empty (-8) program
+  @ compile_exp prog.defns Symtab.empty (-8) prog.body
   @ [Ret]
+  @ List.concat_map (compile_defns prog.defns) prog.defns
   |> List.map string_of_directive
   |> String.concat "\n"
 
-let compile_to_file (program : expr) : unit =
+let compile_to_file (program : string) : unit =
   let file = open_out "program.s" in
-  output_string file (compile program) ;
+  parse_many program |> program_of_s_exps |> compile
+  |> output_string file ;
   close_out file
 
 let compile_and_run (program : string) : unit =
-  let out = parse program |> expr_of_s_exp in
-  if has_free_vars out then raise (BadExpression out) ;
-  compile_to_file out ;
+  (* let out = parse program |> expr_of_s_exp in
+     if has_free_vars out then raise (BadExpression out) ; *)
+  compile_to_file program ;
   ignore (Unix.system "nasm program.s -f elf64 -o program.o") ;
   ignore
     (Unix.system

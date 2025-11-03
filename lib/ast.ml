@@ -61,6 +61,7 @@ type expr =
   | Let of string * expr * expr
   | Pair of expr * expr
   | Do of expr list
+  | Call of string * expr list
 
 let rec expr_of_s_exp (e : s_exp) : expr =
   match e with
@@ -74,7 +75,7 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Var var
   | Lst [Sym f] when Option.is_some (prim0_of_string f) ->
       Prim0 (Option.get (prim0_of_string f))
-  | Lst [Sym f; e1] -> (
+  | Lst [Sym f; e1] when Option.is_some (prim1_of_string f) -> (
     match prim1_of_string f with
     | Some p1 ->
         Prim1 (p1, expr_of_s_exp e1)
@@ -93,6 +94,8 @@ let rec expr_of_s_exp (e : s_exp) : expr =
       Pair (expr_of_s_exp e1, expr_of_s_exp e2)
   | Lst (Sym "do" :: args) ->
       Do (List.map expr_of_s_exp args)
+  | Lst (Sym f :: args) ->
+      Call (f, List.map expr_of_s_exp args)
   | _ ->
       raise (BadSExpression e)
 
@@ -120,5 +123,43 @@ let rec fv (bound : string list) (exp : expr) =
       []
   | Do exps ->
       List.fold_left (fun l e -> fv bound e @ l) [] exps
+  | Call (_, args) ->
+      List.fold_left (fun l e -> fv bound e @ l) [] args
 
 let has_free_vars (exp : expr) : bool = fv [] exp <> []
+
+type defn = {name: string; args: string list; body: expr}
+
+type program = {defns: defn list; body: expr}
+
+let is_defn defns name = List.exists (fun d -> d.name = name) defns
+
+let get_defn defns name = List.find (fun d -> d.name = name) defns
+
+let program_of_s_exps (exps : s_exp list) : program =
+  let rec get_args args =
+    match args with
+    | Sym v :: args ->
+        v :: get_args args
+    | e :: _ ->
+        raise (BadSExpression e)
+    | [] ->
+        []
+  in
+  let get_defn = function
+    | Lst [Sym "define"; Lst (Sym name :: args); body] ->
+        let args = get_args args in
+        {name; args; body= expr_of_s_exp body}
+    | e ->
+        raise (BadSExpression e)
+  in
+  let rec go exps defns =
+    match exps with
+    | [e] ->
+        {defns= List.rev defns; body= expr_of_s_exp e}
+    | d :: exps ->
+        go exps (get_defn d :: defns)
+    | _ ->
+        raise (BadSExpression (Sym "empty"))
+  in
+  go exps []
