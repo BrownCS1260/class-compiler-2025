@@ -271,11 +271,9 @@ let compile_to_file (program : string) : unit =
   close_out file
 
 let compile_and_run (program : string) : unit =
-  (* let out = parse program |> expr_of_s_exp in
-     if has_free_vars out then raise (BadExpression out) ; *)
   compile_to_file program ;
   ignore (Unix.system "nasm program.s -f elf64 -o program.o") ;
   ignore
     (Unix.system
-       "gcc program.o -g runtime.o -o program -z noexecstack" ) ;
-  Unix.open_process_in "./program" |> ignore
+       "gcc -g program.o runtime.o -o program -z noexecstack" ) ;
+  ignore (Unix.system "./program")
