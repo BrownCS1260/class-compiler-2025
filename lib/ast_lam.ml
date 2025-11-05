@@ -27,10 +27,12 @@ let rec expr_lam_of_s_exp : s_exp -> expr_lam = function
       Bool true
   | Sym "false" ->
       Bool false
-  | Sym var ->
-      Var var
+  | Sym s ->
+      Var s
   | Lst [Sym "let"; Lst [Lst [Sym var; exp]]; body] ->
       Let (var, expr_lam_of_s_exp exp, expr_lam_of_s_exp body)
+  | Lst [Sym "pair"; e1; e2] ->
+      Pair (expr_lam_of_s_exp e1, expr_lam_of_s_exp e2)
   | Lst (Sym "do" :: exps) when List.length exps > 0 ->
       Do (List.map expr_lam_of_s_exp exps)
   | Lst [Sym "if"; test_s; then_s; else_s] ->
@@ -90,7 +92,7 @@ let rec expr_of_expr_lam (defns : defn list ref) : expr_lam -> expr =
       let name = gensym "_lambda" in
       let body = expr_of_expr_lam defns body in
       defns := {name; args; body} :: !defns ;
-      Var name
+      Closure name
 
 let program_of_s_exps (exps : s_exp list) : program =
   let defns = ref [] in

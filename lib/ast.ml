@@ -62,6 +62,7 @@ type expr =
   | Pair of expr * expr
   | Do of expr list
   | Call of expr * expr list
+  | Closure of string
 
 let rec expr_of_s_exp (e : s_exp) : expr =
   match e with
@@ -125,6 +126,8 @@ let rec fv (bound : string list) (exp : expr) =
       List.fold_left (fun l e -> fv bound e @ l) [] exps
   | Call (_, args) ->
       List.fold_left (fun l e -> fv bound e @ l) [] args
+  | Closure _ ->
+      []
 
 let has_free_vars (exp : expr) : bool = fv [] exp <> []
 

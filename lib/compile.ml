@@ -247,6 +247,8 @@ let rec compile_exp (defns : defn list) (tab : int symtab)
         ; Sub (Reg Rax, Imm fn_tag)
         ; ComputedCall (Reg Rax)
         ; Sub (Reg Rsp, Imm stack_base) ]
+  | Closure _ ->
+      raise (BadExpression exp)
 
 let compile_defn (defns : defn list) {name; args; body} =
   let ftab =
