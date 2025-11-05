@@ -12,6 +12,7 @@
 
 #define heap_mask 0b111 
 #define pair_tag 0b010
+#define fn_tag 0b110
 
 extern int64_t entry(void *heap);
 
@@ -32,10 +33,9 @@ void print_newline() {
 
 void print_value(uint64_t value) {
 
-    if ((value & num_mask) == num_tag) {
-        
-    int64_t ivalue = (int64_t)value;
-    printf("%" PRIi64, ivalue >> num_shift);
+    if ((value & num_mask) == num_tag) {    
+        int64_t ivalue = (int64_t)value;
+        printf("%" PRIi64, ivalue >> num_shift);
     } else if ((value & bool_mask) == bool_tag) {
         if (value >> bool_shift) { 
             printf("true");
@@ -43,13 +43,15 @@ void print_value(uint64_t value) {
             printf("false");
         } 
     } else if ((value & heap_mask) == pair_tag) {
-    uint64_t v1 = *(uint64_t*)(value - pair_tag);
-    uint64_t v2 = *(uint64_t*)(value - pair_tag + 8);
-    printf("(pair ");
-    print_value(v1);
-    printf(" ");
-    print_value(v2);
-    printf(")");
+        uint64_t v1 = *(uint64_t*)(value - pair_tag);
+        uint64_t v2 = *(uint64_t*)(value - pair_tag + 8);
+        printf("(pair ");
+        print_value(v1);
+        printf(" ");
+        print_value(v2);
+        printf(")");
+    } else if ((value & heap_mask) == fn_tag) {
+        printf("<function>");
     } else {
         printf("BAD VALUE %" PRIu64, value);
     }
