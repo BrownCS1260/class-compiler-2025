@@ -1,5 +1,5 @@
 open S_exp
-open Ast
+open Ast_lam
 open Util
 
 exception BadExpression of expr

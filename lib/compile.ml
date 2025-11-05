@@ -1,6 +1,6 @@
 open S_exp
 open Asm
-open Ast
+open Ast_lam
 open Util
 
 exception BadExpression of expr
