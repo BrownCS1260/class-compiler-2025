@@ -63,9 +63,6 @@ type expr =
   | Do of expr list
   | Call of expr * expr list
 
-(*     ((id mul2) 5)     *)
-let idmul2 : expr = Call (Call (Var "id", [Var "mul2"]), [Num 5])
-
 let rec expr_of_s_exp (e : s_exp) : expr =
   match e with
   | Num n ->

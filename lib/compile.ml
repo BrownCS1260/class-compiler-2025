@@ -282,5 +282,5 @@ let compile_and_run (program : string) : unit =
   ignore (Unix.system "nasm program.s -f elf64 -o program.o") ;
   ignore
     (Unix.system
-       "gcc -g program.o runtime.o -o program -z noexecstack" ) ;
+       "gcc -g program.o runtime.o -o program -z noexecstack -no-pie" ) ;
   ignore (Unix.system "./program")
