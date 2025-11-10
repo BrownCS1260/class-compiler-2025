@@ -124,8 +124,9 @@ let rec fv (bound : string list) (exp : expr) =
       []
   | Do exps ->
       List.fold_left (fun l e -> fv bound e @ l) [] exps
-  | Call (_, args) ->
-      List.fold_left (fun l e -> fv bound e @ l) [] args
+  | Call (exp, args) ->
+      fv bound exp
+      @ List.fold_left (fun l e -> fv bound e @ l) [] args
   | Closure _ ->
       []
 
