@@ -303,7 +303,9 @@ let compile_defn (defns : defn list) {name; args; body} =
   in
   [Align 8; Label (defn_label name)]
   @ fvs_to_stack
-  @ compile_exp defns ftab (-8 * (Symtab.cardinal ftab + 1)) body true
+  @ compile_exp defns ftab
+      (-8 * (Symtab.cardinal ftab + List.length args))
+      body true
   @ [Ret]
 
 let compile (prog : program) : string =
