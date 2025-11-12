@@ -309,6 +309,7 @@ let compile_defn (defns : defn list) {name; args; body} =
   @ [Ret]
 
 let compile (prog : program) : string =
+  let prog = Constant_folding.fold_program prog in
   [ Global "entry"
   ; Extern "error"
   ; Extern "read_num"
